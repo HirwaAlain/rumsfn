@@ -1,0 +1,629 @@
+==============================================================================
+RUMS SPRING BOOT BACKEND — BUILD PROMPTS
+==============================================================================
+Use these prompts in order, one per Claude Code session.
+Start each new session in the rums-api/ Spring Boot project directory.
+Run /clear between sessions.
+CLAUDE.md in that project contains the full spec (backend-description.md).
+
+CLAUDE.md section reference guide (16 sections total):
+  1=Overview  2=Tech Stack  3=Architecture (package structure, 3 lines)
+  4=Database  5=Security    6=API Conventions  7=Endpoints (all modules)
+  8=AuditService  9=AlertService  10=Scheduled Jobs  11=DTOs
+  12=Sequence Numbers  13=File Storage  14=application.properties
+  15=Package Naming  16=Error Codes
+  (Section 17 "Quick Reference" has been removed — all endpoints are in §7.)
+==============================================================================
+
+------------------------------------------------------------------------------
+PROMPT 01 — Project Scaffold & pom.xml
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 2, 14, and 15.
+
+Create a Maven Spring Boot 3.3.x project with Java 21 at package rw.rura.rums.
+Generate the following files exactly:
+
+1. pom.xml — include all dependencies listed in section 2 with their exact
+   artifact IDs. Set Java version to 21. Set packaging to jar.
+
+2. src/main/resources/application.properties — all keys from section 14,
+   with placeholder values marked CHANGE_ME where shown.
+
+3. src/main/java/rw/rura/rums/RumsApplication.java — standard Spring Boot
+   main class with @EnableScheduling and @EnableJpaAuditing annotations.
+
+4. src/main/java/rw/rura/rums/config/FileStorageConfig.java — @ConfigurationProperties
+   binding rums.files.upload-dir to a String field uploadDir. Include a
+   @PostConstruct that creates the uploads/clms-documents/ and uploads/reports/
+   subdirectories if they do not exist.
+
+5. .gitignore — standard Spring Boot / Maven gitignore including uploads/.
+
+Do not create any other files yet.
+
+------------------------------------------------------------------------------
+PROMPT 02 — Flyway Database Migrations
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 4 (Database).
+
+Create all Flyway migration files under src/main/resources/db/migration/.
+
+File V1__create_enums.sql — all CREATE TYPE statements from section 4 in the
+exact order listed (enums first, since tables depend on them).
+
+File V2__create_tables.sql — all CREATE TABLE statements from section 4 in
+dependency order: users first (no FK dependencies), then licenses, complaints,
+compliance_records, fraud_cases, clms_cases, clms_documents, workflows,
+workflow_steps, alerts, audit_log, reports. Include all constraints and
+DEFAULT expressions exactly as shown.
+
+File V3__create_indexes.sql — all CREATE INDEX statements from section 4.
+
+Do not create any Java files yet.
+
+------------------------------------------------------------------------------
+PROMPT 03 — Security Infrastructure (JWT + Spring Security)
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 5 and 14 (security rules and config keys).
+Use section 3 for the correct package paths (rw.rura.rums.security, rw.rura.rums.config, etc.).
+
+Create the following files:
+
+1. rw.rura.rums.security.JwtUtil
+   - Fields: secret (from @Value rums.jwt.secret), accessExpirySeconds,
+     refreshExpirySeconds (from @Value).
+   - Methods: generateAccessToken(UserDetails), generateRefreshToken(UserDetails),
+     extractUsername(token), validateToken(token, UserDetails), isTokenExpired(token),
+     extractJti(token).
+   - Use JJWT 0.12.x API (Jwts.builder(), Jwts.parser()).
+
+2. rw.rura.rums.security.JwtAuthFilter extends OncePerRequestFilter
+   - Reads Authorization: Bearer header.
+   - Validates token, sets SecurityContextHolder.
+   - Skips /api/auth/login, /api/auth/refresh, /swagger-ui/**, /v3/api-docs/**.
+
+3. rw.rura.rums.security.UserDetailsServiceImpl implements UserDetailsService
+   - Loads user by email from UserRepository (to be created in prompt 06).
+   - Throws UsernameNotFoundException if not found or deleted_at is set.
+   - Returns Spring Security User with authorities derived from role field.
+
+4. rw.rura.rums.config.SecurityConfig (@Configuration @EnableMethodSecurity)
+   - Disables CSRF (REST API).
+   - Configures CORS: allow origin from rums.cors.allowed-origin property,
+     methods GET POST PUT PATCH DELETE OPTIONS, headers Authorization Content-Type.
+   - Permits /api/auth/**, /swagger-ui/**, /v3/api-docs/**.
+   - Requires authentication for all other /api/** requests.
+   - Registers JwtAuthFilter before UsernamePasswordAuthenticationFilter.
+   - Exposes BCryptPasswordEncoder bean (strength 12).
+   - Exposes AuthenticationManager bean.
+
+5. rw.rura.rums.exception.ResourceNotFoundException extends RuntimeException
+6. rw.rura.rums.exception.ConflictException extends RuntimeException
+7. rw.rura.rums.exception.ForbiddenException extends RuntimeException
+8. rw.rura.rums.exception.InvalidStatusTransitionException extends RuntimeException
+
+9. rw.rura.rums.exception.GlobalExceptionHandler (@RestControllerAdvice)
+   - Handles all 4 custom exceptions plus MethodArgumentNotValidException,
+     ConstraintViolationException, DataIntegrityViolationException, and
+     generic Exception.
+   - All responses use the envelope from section 6:
+     { success, error (error code string), message, timestamp }
+   - Error codes from section 16.
+
+10. rw.rura.rums.dto.ApiResponse<T> — generic wrapper record with fields:
+    boolean success, T data, String message, Instant timestamp.
+    Static factory methods: ok(T data), ok(T data, String message), error(String code, String message).
+
+Add rums.cors.allowed-origin=http://localhost:3000 to application.properties.
+
+------------------------------------------------------------------------------
+PROMPT 04 — Audit Service & Alert Service
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 8 and 9 (service signatures and behaviour).
+Use section 3 for package paths (rw.rura.rums.audit, rw.rura.rums.alert).
+
+Create the following. Do not create entity/repository classes yet — use
+placeholder constructor injections that will be satisfied in later prompts.
+
+1. rw.rura.rums.audit.ChangeDto — record: String before, String after.
+
+2. rw.rura.rums.audit.AuditService (@Service)
+   - Inject AuditLogRepository (declare as a field; it will be created in prompt 11).
+   - Method signature from section 8.
+   - Builds and saves AuditLog entity. Sets user_name by denormalising from the
+     User argument (use "System" if actor is null).
+   - Extracts IP from HttpServletRequest getRemoteAddr().
+   - Extracts User-Agent from HttpServletRequest header "User-Agent".
+   - changes argument may be null; store as JSONB via Jackson ObjectMapper.
+
+3. rw.rura.rums.alert.AlertService (@Service)
+   - Inject AlertRepository (declare as field; created in prompt 10).
+   - Method signature from section 9.
+   - Deduplication check: before inserting, query for existing unread alert
+     with same type + relatedEntityId. Skip if found.
+   - Builds and saves Alert entity.
+
+4. rw.rura.rums.alert.AlertScheduler (@Component)
+   - Inject LicenseRepository, ComplaintRepository, WorkflowRepository,
+     FraudCaseRepository, AlertService (all forward references).
+   - Implement all 4 scheduled methods from section 10 with the exact
+     @Scheduled cron expressions.
+   - Leave method bodies as TODO stubs — they will be filled in prompt 14.
+
+------------------------------------------------------------------------------
+PROMPT 05 — Shared Enums (Java)
+------------------------------------------------------------------------------
+Read CLAUDE.md section 4 (all CREATE TYPE statements) and sections 3 and 15 for the correct package name (rw.rura.rums.enums).
+
+Create one Java enum per PostgreSQL enum type under package rw.rura.rums.enums.
+Each enum must have @JsonValue on its toString() or use a @JsonProperty on each
+constant so Jackson serialises/deserialises using the exact string values shown
+in the SQL (e.g. "Telecom", "Kigali City", "Mobile Network Operator", etc.).
+
+Enums to create (named in PascalCase):
+Sector, Province, UserRole, UserStatus, UserDepartment, LicenseStatus,
+LicenseCategory, ComplaintStatus, ComplaintSeverity, ComplaintCategory,
+ComplianceStatus, ComplianceCheckType, FraudRiskLevel, FraudCaseStatus,
+FraudIndicatorType, ClmsCaseStatus, ClmsCaseType, WorkflowStatus,
+WorkflowTrigger, WorkflowStepStatus, AlertSeverity, AlertStatus, AlertType,
+AuditAction, AuditModule, ReportStatus, ReportType, ReportFormat.
+
+For enums whose values contain spaces or special characters (e.g. UserDepartment
+"Fraud & Investigations", Province "Kigali City"), use a constructor that stores
+the display value and annotate with @JsonValue on the getter.
+
+Also create rw.rura.rums.enums.SectorOrAll — a special type that accepts all
+Sector values plus the literal string "All Sectors", used by Workflow.sector
+and Report.sector. Implement as a sealed interface or a wrapper class with a
+static fromString(String) factory. Ensure it serialises correctly to/from JSON.
+
+------------------------------------------------------------------------------
+PROMPT 06 — Users Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.12, 11 (UserResponse), 3, and 8.
+
+Create all layers of the Users module:
+
+1. rw.rura.rums.module.users.entity.User (@Entity @Table(name="users"))
+   - All fields from section 4 users table. Use @Enumerated(EnumType.STRING)
+     for enum fields. Map deleted_at as @Column nullable. Use @CreationTimestamp
+     for created_at.
+
+2. rw.rura.rums.module.users.repository.UserRepository (JpaRepository<User, UUID>)
+   - findByEmailAndDeletedAtIsNull(String email)
+   - findAllByDeletedAtIsNull(Specification<User> spec, Pageable pageable)
+   - existsByEmailAndDeletedAtIsNull(String email)
+
+3. rw.rura.rums.module.users.dto.UserResponse — all fields from section 11.
+   Never include passwordHash. Static fromEntity(User) factory method.
+
+4. rw.rura.rums.module.users.dto.UserCreateRequest — @NotBlank name, @Email email,
+   phone (optional), @NotNull role, @NotNull department.
+
+5. rw.rura.rums.module.users.dto.UserUpdateRequest — all fields optional (name, phone).
+
+6. rw.rura.rums.module.users.dto.StatusUpdateRequest — @NotNull UserStatus status.
+
+7. rw.rura.rums.module.users.dto.RoleUpdateRequest — @NotNull UserRole role.
+
+8. rw.rura.rums.module.users.dto.UserSummary — record: UUID id, String name.
+   Static fromEntity(User) factory. Used by other modules.
+
+9. rw.rura.rums.module.users.service.UserService
+   - getAll(UserRole role, UserStatus status, String search, Pageable pageable)
+     Uses JPA Specification for dynamic filtering. Excludes soft-deleted.
+   - getById(UUID id)
+   - create(UserCreateRequest req, User actor, HttpServletRequest request)
+     Generates temp password, hashes with BCrypt, saves, calls AuditService.
+   - update(UUID id, UserUpdateRequest req, User actor, HttpServletRequest request)
+   - updateStatus(UUID id, StatusUpdateRequest req, User actor, HttpServletRequest request)
+     Calls AlertService for user_suspended. Calls AuditService.
+   - updateRole(UUID id, RoleUpdateRequest req, User actor, HttpServletRequest request)
+     Calls AuditService with permission_change action and before/after changes.
+   - softDelete(UUID id, User actor, HttpServletRequest request)
+     Sets deleted_at. Cannot delete own account — throw ForbiddenException.
+
+10. rw.rura.rums.module.users.controller.UserController (@RestController @RequestMapping("/api/users"))
+    - All endpoints from section 7.12. Use @PreAuthorize for role guards.
+    - GET /me reads principal from SecurityContext.
+    - All responses wrapped in ApiResponse.
+
+------------------------------------------------------------------------------
+PROMPT 07 — Auth Module
+------------------------------------------------------------------------------
+Read CLAUDE.md section 7.1 and section 5.
+
+Create all layers of the Auth module:
+
+1. rw.rura.rums.module.auth.dto.LoginRequest — @NotBlank email, @NotBlank password.
+2. rw.rura.rums.module.auth.dto.LoginResponse — accessToken, refreshToken,
+   expiresIn (long), user (UserSummary with extra fields: role, department).
+3. rw.rura.rums.module.auth.dto.RefreshRequest — @NotBlank refreshToken.
+4. rw.rura.rums.module.auth.dto.ChangePasswordRequest — currentPassword, newPassword
+   (validate newPassword meets rules: min 10 chars, 1 uppercase, 1 digit, 1 special).
+
+5. rw.rura.rums.module.auth.service.TokenRevocationService
+   - In-memory ConcurrentHashSet<String> of revoked JTIs.
+   - isRevoked(String jti), revoke(String jti).
+
+6. rw.rura.rums.module.auth.service.AuthService
+   - login: authenticate with AuthenticationManager, generate both tokens,
+     update user.lastLogin, call AuditService(login).
+     Returns LoginResponse.
+   - refresh: validate refresh token, check not revoked, generate new pair.
+   - logout: revoke refresh token JTI, call AuditService(logout).
+   - changePassword: verify currentPassword, validate new password rules,
+     re-hash, save. Call AuditService(password_reset).
+
+7. rw.rura.rums.module.auth.controller.AuthController (@RestController @RequestMapping("/api/auth"))
+   - POST /login (no auth)
+   - POST /refresh (no auth)
+   - POST /logout (auth required)
+   - PATCH /change-password (auth required)
+   All wrapped in ApiResponse.
+
+Update JwtAuthFilter to check TokenRevocationService for revoked JTIs.
+
+------------------------------------------------------------------------------
+PROMPT 08 — Licenses Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.3, 11 (LicenseResponse), and 8.
+
+Create all layers of the Licenses module following the exact same pattern
+established in the Users module (entity → repository → DTOs → service → controller).
+
+Entity fields: all columns from the licenses table in section 4.
+
+Repository: findAll with JPA Specification for status, sector, province, search
+(ILIKE on operator_name and license_number).
+
+DTOs: LicenseResponse (section 11), LicenseCreateRequest, LicenseUpdateRequest,
+LicenseStatusUpdateRequest { LicenseStatus status }.
+
+Service methods:
+- getAll(filters, Pageable) — filtered paginated list.
+- getById(UUID id) — or throw ResourceNotFoundException.
+- create(LicenseCreateRequest, User actor, HttpServletRequest)
+  Validates licenseNumber uniqueness. Calls AuditService(create).
+- update(UUID id, LicenseUpdateRequest, User actor, HttpServletRequest)
+  Calls AuditService(update) with changed fields tracked.
+- updateStatus(UUID id, LicenseStatusUpdateRequest, User actor, HttpServletRequest)
+  Validate transitions (cannot revoke an already-revoked licence).
+  Map status to audit action: active→approve, suspended→suspend, revoked→delete,
+  expired→update. Calls AlertService for suspended/revoked. Calls AuditService.
+- getTrend() — returns List<LicenseTrendPoint> for last 6 months using a
+  native SQL query grouping by month.
+
+LicenseTrendPoint record: String month, long issued, long revoked, long expired.
+
+Controller: all endpoints from section 7.3 at /api/licenses. Role guards per section 5.
+
+------------------------------------------------------------------------------
+PROMPT 09 — Complaints Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.4, 11 (ComplaintResponse), and 8.
+
+Follow the same module pattern. Pay attention to:
+
+- referenceNumber auto-generation: RURA-CMP-{YYYY}-{NNNN}. Implement a
+  @Transactional helper in the service that queries MAX(reference_number) for
+  the current year and increments, padded to 4 digits.
+
+- assigned_to_id is a FK to users. The entity has @ManyToOne(fetch=LAZY) User assignedTo.
+  ComplaintResponse includes assignedTo as UserSummary (nullable).
+
+- resolved_at is set automatically when status transitions to 'resolved'.
+  updated_at is set on every save using @UpdateTimestamp.
+
+- Service method assign(UUID id, UUID userId, actor, request) — looks up
+  the target User by userId, sets assignedTo, calls AuditService with
+  changes { assignedTo: { before: "Unassigned"|prevName, after: newName } }.
+
+- getBySector() — native query counting complaints grouped by sector.
+
+Controller at /api/complaints. All endpoints from section 7.4.
+
+------------------------------------------------------------------------------
+PROMPT 10 — Alerts Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.9, 9, 11 (AlertResponse), and 8.
+
+Create the Alerts module. This module is special: Alert records are created
+by AlertService (prompt 04), not via a POST endpoint. The controller only
+exposes read and status-change endpoints.
+
+Entity: all columns from alerts table. actioned_by is @ManyToOne(fetch=LAZY) User.
+
+Repository: findAll with Specification for severity, status, relatedModule, search
+(ILIKE on title and message). findByTypeAndRelatedEntityIdAndStatus for deduplication.
+Now that AlertRepository exists, go back and inject it into AlertService (it was a
+forward reference in prompt 04 — implement the deduplication and save logic now).
+
+DTOs: AlertResponse (section 11). No create DTO (created programmatically).
+
+Service: getAll, markRead, dismiss, action (sets actioned_by to current user),
+markAllRead.
+
+Controller at /api/alerts. All endpoints from section 7.9.
+
+------------------------------------------------------------------------------
+PROMPT 11 — Audit Log Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.10, 11 (AuditLogResponse), and 8.
+
+Create the Audit Log module. This module is read-only via API.
+
+Entity: all columns from audit_log table. changes is stored as JSONB — map as
+@Type(JsonBinaryType) using hypersistence-utils or as @Column(columnDefinition="jsonb")
+with a Map<String, ChangeDto> field and a @Convert with a custom JPA AttributeConverter
+that uses Jackson ObjectMapper to serialize/deserialize. Use the AttributeConverter
+approach (no extra dependency needed).
+
+Repository: findAll with Specification for module, action, userId, search
+(ILIKE on user_name and entity_label). Ordered by timestamp DESC.
+
+Now that AuditLogRepository exists, go back and inject it into AuditService
+(forward reference from prompt 04 — implement the save logic now).
+
+DTOs: AuditLogResponse (section 11).
+
+Service: getAll(filters, Pageable).
+
+Controller at /api/audit. GET / only. Requires any authenticated role.
+
+------------------------------------------------------------------------------
+PROMPT 12 — Compliance Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.5, 11 (ComplianceRecordResponse), and 8.
+
+Follow the standard module pattern.
+
+Entity: compliance_records table. auditor is @ManyToOne(fetch=LAZY) User.
+license is @ManyToOne(fetch=LAZY) License (nullable, ON DELETE SET NULL).
+
+Service:
+- When status changes to non_compliant in update(), call
+  AlertService.createAlert(compliance_breach, ...).
+- getOverview() — native query counting records grouped by status, returning
+  List<ComplianceOverviewItem>. ComplianceOverviewItem record: String name,
+  long value, String color. Hardcode the color values from section 7.5.
+
+Controller at /api/compliance. All endpoints from section 7.5.
+
+------------------------------------------------------------------------------
+PROMPT 13 — Fraud Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.6, 11 (FraudCaseResponse), and 8.
+
+Follow the standard module pattern.
+
+Entity: fraud_cases table. investigatingOfficer is @ManyToOne(fetch=LAZY) User (nullable).
+
+caseNumber auto-generation: RURA-FRD-{YYYY}-{NNNN} — same pattern as complaints.
+
+Service:
+- In create(), if riskLevel == CRITICAL, call
+  AlertService.createAlert(fraud_detected, ...).
+- updateStatus() maps status to AuditAction: confirmed→approve, dismissed→reject,
+  investigating/referred→update.
+
+Controller at /api/fraud. All endpoints from section 7.6.
+
+------------------------------------------------------------------------------
+PROMPT 14 — CLMS Module (with File Upload)
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.7, 11 (CLMSCaseResponse, CLMSDocumentResponse), and 8.
+
+This module includes file upload/download — read section 13 carefully.
+
+Entities:
+- ClmsCase: all columns from clms_cases table. assignedTo is @ManyToOne(fetch=LAZY) User.
+  documents is @OneToMany(mappedBy="clmsCase", cascade=ALL, fetch=EAGER).
+- ClmsDocument: all columns from clms_documents table. clmsCase is @ManyToOne ClmsCase.
+  uploadedBy is @ManyToOne(fetch=LAZY) User.
+
+caseNumber auto-generation: CLMS-{YYYY}-{NNNN}.
+
+File upload service (rw.rura.rums.module.clms.service.ClmsFileService):
+- uploadDocument(UUID caseId, MultipartFile file, String displayName, User uploader)
+  1. Validate MIME type against allowed list (section 13).
+  2. Validate size <= 20 MB.
+  3. Generate stored filename: {UUID}_{sanitisedOriginalFilename}.
+  4. Write to {uploadDir}/clms-documents/{storedFilename}.
+  5. Create and save ClmsDocument entity.
+  6. Return ClmsDocumentResponse.
+- downloadDocument(UUID caseId, UUID docId) — returns Resource for streaming.
+  Throws ResourceNotFoundException if docId not in caseId.
+
+CLMSCaseService:
+- All CRUD from section 7.7. Status transitions validated.
+- getById returns full response including documents[].
+- Each document in response includes a downloadUrl computed as
+  "/api/clms/{caseId}/documents/{docId}/download".
+
+Controller at /api/clms. All endpoints from section 7.7.
+Upload endpoint: @PostMapping("/{id}/documents") @RequestParam MultipartFile file.
+Download endpoint: returns ResponseEntity<Resource> with Content-Disposition header.
+
+------------------------------------------------------------------------------
+PROMPT 15 — Workflows Module
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.8, 11 (WorkflowResponse, WorkflowStepResponse), and 8.
+
+Entities:
+- Workflow: all columns from workflows table. createdBy is @ManyToOne(fetch=LAZY) User.
+  steps is @OneToMany(mappedBy="workflow", cascade=ALL, fetch=EAGER, orderBy="stepOrder ASC").
+  sector stored as VARCHAR (accepts Sector enum values + "All Sectors" literal).
+- WorkflowStep: all columns. completedBy is @ManyToOne(fetch=LAZY) User (nullable).
+
+Service:
+- create() persists Workflow and its steps in one transaction. stepOrder uniqueness
+  enforced by DB constraint.
+- updateStatus(): transitions validated. Sets startedAt on active, completedAt on
+  completed. Calls AlertService for failed. Calls AuditService.
+- updateStep(UUID workflowId, UUID stepId, status, User actor, HttpServletRequest):
+  Sets completedAt + completedBy when status=completed. Calls AuditService.
+
+Now go back to AlertScheduler (prompt 04) and implement the workflow stall detection
+body: query Workflow where status IN (active,paused) and startedAt < NOW()-5days
+and no step has completedAt in the last 5 days. Create alert for each.
+
+Controller at /api/workflows. All endpoints from section 7.8.
+
+------------------------------------------------------------------------------
+PROMPT 16 — Reports Module (with File Upload)
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 7.11, 11 (ReportResponse), 13, and 8.
+
+Entity: all columns from reports table. createdBy is @ManyToOne(fetch=LAZY) User.
+sector stored as VARCHAR.
+
+File upload/download follows the same pattern as CLMS (prompt 14) but stores
+files under {uploadDir}/reports/. Use a ReportFileService similar to ClmsFileService.
+
+Service:
+- publish(UUID id, User actor, HttpServletRequest):
+  Sets status=published, publishedAt=NOW().
+  Calls AlertService.createAlert(report_ready, ...).
+  Calls AuditService(approve).
+- archive(UUID id, User actor, HttpServletRequest):
+  Sets status=archived. Calls AuditService(update).
+- download: stream file. Calls AuditService(export).
+- ReportResponse.downloadUrl = "/api/reports/{id}/download" if storedPath is not null,
+  else null.
+
+Controller at /api/reports. All endpoints from section 7.11.
+
+------------------------------------------------------------------------------
+PROMPT 17 — Dashboard Module
+------------------------------------------------------------------------------
+Read CLAUDE.md section 7.2 and 11.
+
+Create rw.rura.rums.module.dashboard with:
+
+DashboardService that injects LicenseRepository, ComplaintRepository,
+ComplianceRepository, FraudCaseRepository, AuditLogRepository.
+
+Implement each method with the query logic described in section 7.2:
+
+- getKpis(): 4 live counts.
+  activeLicenses: COUNT licenses WHERE status='active'
+  activeComplaints: COUNT complaints WHERE status IN ('open','under_review','escalated')
+  complianceRate: value from compliance overview (compliant % of total)
+  openFraudCases: COUNT fraud_cases WHERE status IN ('open','investigating')
+
+- getLicenseTrend(): reuse the method already on LicenseService (or move the query here).
+
+- getComplaintsBySector(): COUNT complaints GROUP BY sector.
+
+- getComplianceOverview(): delegate to ComplianceService.getOverview().
+
+- getActivity(int limit): fetch latest N audit_log entries, map each to ActivityItem
+  using the action→ActivityType mapping table in section 7.2.
+  ActivityItem record: id, type (ActivityType string), description (entity_label),
+  actor (user_name), module, timestamp, entityId.
+
+DashboardController at /api/dashboard. All GET endpoints from section 7.2.
+No auth role restriction beyond being logged in.
+
+------------------------------------------------------------------------------
+PROMPT 18 — Scheduled Jobs (complete)
+------------------------------------------------------------------------------
+Read CLAUDE.md section 10.
+
+Go back to AlertScheduler (created as stubs in prompt 04) and implement all
+4 method bodies now that all repositories exist:
+
+1. checkLicenceExpiry():
+   Query licenses WHERE status='active' AND expires_at <= NOW() + 30 days.
+   For each result apply the 3-tier logic (expired / 9-day critical / 30-day warning).
+   For truly expired ones also call licenseRepository.save() to set status=expired.
+
+2. checkComplaintSlaBreaches():
+   Query complaints WHERE status IN ('open','under_review')
+   AND filed_at < NOW() - 14 days.
+   Create alert complaint_sla_breach / warning for each.
+
+3. checkWorkflowStalls():
+   Already implemented in prompt 15 — verify it is complete.
+
+4. checkFraudLossThreshold():
+   Sum estimated_loss_rwf WHERE status NOT IN ('dismissed')
+   AND reported_at >= first day of current quarter.
+   If sum > 200_000_000 create one threshold_exceeded / critical alert.
+
+------------------------------------------------------------------------------
+PROMPT 19 — Integration Tests & Seed Data
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 4, 5, 6 and all of section 7.
+
+Create the following:
+
+1. src/main/resources/db/migration/V4__seed_data.sql
+   Insert realistic seed rows for all tables using the data from the frontend's
+   mock data files (listed in the spec's closing note). Seed at minimum:
+   - 1 admin user (email: admin@rura.rw, temp password: Admin@1234!)
+   - 8 users matching mock-users.ts names and emails
+   - 12 licenses from mock-licenses.ts
+   - 10 complaints from mock-complaints.ts
+   - 10 compliance records from mock-compliance.ts
+   - 10 fraud cases from mock-fraud.ts
+   - 10 CLMS cases from mock-clms.ts (without documents)
+   - 8 workflows with steps from mock-workflows.ts
+   - 10 alerts from mock-alerts.ts
+   - 10 reports from mock-reports.ts (without files)
+   Hash all user passwords as BCrypt of "Admin@1234!" using a pre-computed hash.
+
+2. src/test/java/rw/rura/rums/module/auth/AuthControllerTest.java
+   @SpringBootTest + @AutoConfigureMockMvc test for:
+   - POST /api/auth/login success returns 200 + tokens
+   - POST /api/auth/login wrong password returns 401
+   - POST /api/auth/refresh returns new tokens
+   - Accessing /api/licenses without token returns 401
+
+3. src/test/java/rw/rura/rums/module/licenses/LicenseServiceTest.java
+   Unit tests with Mockito for:
+   - getAll returns paginated results
+   - getById throws ResourceNotFoundException for unknown id
+   - create saves and returns response
+   - updateStatus throws InvalidStatusTransitionException for invalid transition
+
+------------------------------------------------------------------------------
+PROMPT 20 — Final Wiring & Smoke Check
+------------------------------------------------------------------------------
+Read CLAUDE.md sections 6, 14, and 16 (API conventions, config keys, error codes).
+Use section 3 to verify all packages are correctly named throughout the project.
+
+Perform the following final tasks:
+
+1. Verify AuditService and AlertService forward references (injected in prompts 04,
+   10, 11) are now fully wired — no null injection points remain.
+
+2. Add @Operation and @Tag annotations from SpringDoc OpenAPI to all controllers.
+   Tag names must match module names (e.g. @Tag(name = "Licenses")).
+
+3. Add a springdoc configuration bean that sets:
+   - API title: "RUMS API"
+   - Version: "1.0.0"
+   - Description: "Rwanda Utilities Regulatory Authority — RUMS REST API"
+   - Security scheme: BearerAuth (JWT)
+   - Apply BearerAuth globally to all secured endpoints.
+
+4. Add a CorsFilter bean (or ensure SecurityConfig CORS handles preflight OPTIONS
+   requests correctly) so the frontend at localhost:3000 can call the API.
+
+5. Verify application.properties has spring.jpa.open-in-view=false (avoids
+   lazy-loading issues in controllers).
+
+6. Run ./mvnw clean verify and fix any compilation errors or test failures.
+
+7. Write the final README.md for the Spring Boot project with:
+   - Prerequisites (Java 21, PostgreSQL 16, Maven 3.9+)
+   - Setup: create DB, set env vars, run migrations, start server
+   - Default admin credentials
+   - Swagger UI URL
+   - How to run tests
+
+==============================================================================
+END OF BUILD PROMPTS
+==============================================================================
