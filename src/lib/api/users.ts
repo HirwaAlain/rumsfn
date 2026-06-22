@@ -26,3 +26,14 @@ export async function updateUserStatus(id: string, status: string): Promise<User
     body: JSON.stringify({ status }),
   });
 }
+
+export async function updateUserRole(id: string, role: string): Promise<User> {
+  return apiFetch<User>(`/users/${id}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  return apiFetch<void>(`/users/${id}`, { method: "DELETE" });
+}

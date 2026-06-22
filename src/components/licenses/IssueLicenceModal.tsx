@@ -54,6 +54,13 @@ export function IssueLicenceModal({ open, onClose, onCreated }: Props) {
     if (!form.operatorName || !form.issuedAt || !form.expiresAt) {
       toast("Please fill in all required fields.", "error"); return;
     }
+    const today = new Date().toISOString().split("T")[0];
+    if (form.issuedAt < today) {
+      toast("Issue date cannot be set to a past date.", "error"); return;
+    }
+    if (form.expiresAt <= form.issuedAt) {
+      toast("Expiry date must be after the issue date.", "error"); return;
+    }
     setLoading(true);
     try {
       const created = await createLicense({
@@ -148,11 +155,14 @@ export function IssueLicenceModal({ open, onClose, onCreated }: Props) {
                   <div>
                     <label className={LABEL}>Issue Date <span className="text-danger">*</span></label>
                     <input type="date" className={INPUT} value={form.issuedAt}
+                      min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => set("issuedAt", e.target.value)} disabled={loading} />
+                    <p className="mt-1 text-xs text-muted-foreground">Must be today or a future date.</p>
                   </div>
                   <div>
                     <label className={LABEL}>Expiry Date <span className="text-danger">*</span></label>
                     <input type="date" className={INPUT} value={form.expiresAt}
+                      min={form.issuedAt || new Date().toISOString().split("T")[0]}
                       onChange={(e) => set("expiresAt", e.target.value)} disabled={loading} />
                   </div>
                 </div>

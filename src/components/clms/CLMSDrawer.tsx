@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, CheckCircle, XCircle, RotateCcw, Loader2 } from "lucide-react";
+import { X, CheckCircle, XCircle, RotateCcw, Loader2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateCLMSStatus } from "@/lib/api/clms";
 import { useToast } from "@/components/shared/Toast";
 import { CLMSDrawerDetails } from "./CLMSDrawerDetails";
+import { printCLMSCaseReport } from "./CLMSReportPrint";
 import type { CLMSCase } from "@/types";
 
 const BTN = "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50";
@@ -66,6 +67,13 @@ export function CLMSDrawer({ caseItem, open, onClose, onUpdate }: Props) {
               </button>
             </div>
             <CLMSDrawerDetails c={caseItem} />
+            <div className="flex items-center justify-end border-b border-border px-6 py-2">
+              <button type="button"
+                onClick={() => caseItem && printCLMSCaseReport(caseItem)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 transition-colors">
+                <FileDown className="h-3.5 w-3.5" /> Download Report
+              </button>
+            </div>
             <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-4">
               {caseItem.status === "submitted" && (
                 <>

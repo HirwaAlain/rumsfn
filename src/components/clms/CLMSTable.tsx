@@ -105,7 +105,7 @@ export function CLMSTable({ cases, onView }: { cases: CLMSCase[]; onView: (c: CL
     <DataTable
       data={cases}
       columns={getColumns(onView)}
-      searchPlaceholder="Search by case number, title or applicant…"
+      searchPlaceholder="Search by case number, title, applicant or assigned officer…"
       emptyTitle="No cases found"
       emptyDescription="Try adjusting the type or status filters."
     />
