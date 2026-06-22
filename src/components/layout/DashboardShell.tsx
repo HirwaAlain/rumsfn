@@ -44,7 +44,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           >
             {/* Backdrop — click to close */}
             <div
-              className="absolute inset-0 bg-navy/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-purple-dark/60 backdrop-blur-sm"
               onClick={collapse}
               aria-hidden="true"
             />
@@ -82,7 +82,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="p-4 sm:p-6"
+            className="p-5 sm:p-7"
           >
             <BreadCrumb />
             {children}

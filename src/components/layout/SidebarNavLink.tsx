@@ -17,50 +17,58 @@ interface SidebarNavLinkProps {
   collapsed: boolean;
 }
 
-const LABEL_VARIANTS = {
-  visible: { opacity: 1, transition: { duration: 0.15, delay: 0.05 } },
-  hidden:  { opacity: 0, transition: { duration: 0.1  } },
-};
-
 export function SidebarNavLink({ item, isActive, collapsed }: SidebarNavLinkProps) {
   const { label, href, icon: Icon } = item;
+
+  if (collapsed) {
+    return (
+      <Link
+        href={href}
+        title={label}
+        aria-current={isActive ? "page" : undefined}
+        className="flex items-center justify-center py-0.5"
+      >
+        <span
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-150",
+            isActive
+              ? "bg-sidebar-active shadow-md shadow-purple/20 text-sidebar-fg-active"
+              : "text-sidebar-fg hover:bg-sidebar-hover hover:text-accent"
+          )}
+        >
+          <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+        </span>
+      </Link>
+    );
+  }
 
   return (
     <Link
       href={href}
-      title={collapsed ? label : undefined}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium",
-        "transition-colors duration-150",
-        collapsed ? "justify-center px-0" : "px-3",
+        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+        "transition-all duration-150",
         isActive
-          ? "bg-sidebar-active text-sidebar-fg-active"
-          : "text-sidebar-fg hover:bg-sidebar-hover hover:text-white"
+          ? "bg-sidebar-active text-sidebar-fg-active shadow-md shadow-purple/20"
+          : "text-sidebar-fg hover:bg-sidebar-hover hover:text-accent"
       )}
     >
-      {/* Left active bar */}
-      {isActive && (
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-teal"
-        />
-      )}
-
-      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <Icon
+        className={cn("h-[18px] w-[18px] shrink-0 transition-colors")}
+        aria-hidden="true"
+      />
 
       <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.span
-            variants={LABEL_VARIANTS}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            className="truncate"
-          >
-            {label}
-          </motion.span>
-        )}
+        <motion.span
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -6 }}
+          transition={{ duration: 0.15 }}
+          className="truncate"
+        >
+          {label}
+        </motion.span>
       </AnimatePresence>
     </Link>
   );

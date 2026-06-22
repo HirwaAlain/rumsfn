@@ -1,7 +1,7 @@
 "use client";
 
 import { apiFetch } from "./client";
-import type { User } from "@/types";
+import type { User, UserRole, UserDepartment } from "@/types";
 
 interface PageResponse<T> {
   content: T[];
@@ -11,13 +11,27 @@ interface PageResponse<T> {
   size: number;
 }
 
+export interface UserCreateResult {
+  user: User;
+  inviteSent: boolean;
+  inviteMessage: string;
+}
+
+export interface InviteUserPayload {
+  name: string;
+  contactEmail: string;
+  phone?: string;
+  role: UserRole;
+  department: UserDepartment;
+}
+
 export async function getUsers(): Promise<User[]> {
   const page = await apiFetch<PageResponse<User>>("/users?page=0&size=100&sort=createdAt,desc");
   return page.content;
 }
 
-export async function inviteUser(data: Partial<Omit<User, "id" | "lastLogin" | "createdAt" | "mfaEnabled" | "status">>): Promise<User> {
-  return apiFetch<User>("/users", { method: "POST", body: JSON.stringify(data) });
+export async function inviteUser(data: InviteUserPayload): Promise<UserCreateResult> {
+  return apiFetch<UserCreateResult>("/users", { method: "POST", body: JSON.stringify(data) });
 }
 
 export async function updateUserStatus(id: string, status: string): Promise<User> {

@@ -62,76 +62,78 @@ export function DataTable<TData>({
           onChange={(e) => setGlobalFilter(e.target.value)}
           placeholder={searchPlaceholder}
           className={cn(
-            "w-full rounded-md border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground",
+            "w-full rounded-full border border-border bg-card pl-9 pr-4 py-2 text-sm text-foreground",
             "placeholder:text-muted-foreground shadow-sm",
-            "focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
-            "transition-colors"
+            "focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent",
+            "transition-all duration-200"
           )}
         />
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
-        <table className="min-w-full divide-y divide-border text-sm">
-          <thead className="bg-muted/40">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    onClick={header.column.getToggleSortingHandler()}
-                    className={cn(
-                      "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground",
-                      header.column.getCanSort() && "cursor-pointer select-none hover:text-foreground transition-colors"
-                    )}
-                  >
-                    <div className="flex items-center gap-1">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getCanSort() && (
-                        <span className="text-muted-foreground/60">
-                          {header.column.getIsSorted() === "asc" ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : header.column.getIsSorted() === "desc" ? (
-                            <ChevronDown className="h-3 w-3" />
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3" />
-                          )}
-                        </span>
+      <div className="overflow-hidden rounded-2xl shadow-md bg-card">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-border text-sm">
+            <thead className="bg-muted/50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      onClick={header.column.getToggleSortingHandler()}
+                      className={cn(
+                        "px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground",
+                        header.column.getCanSort() && "cursor-pointer select-none hover:text-accent transition-colors"
                       )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-border bg-card">
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="p-0">
-                  <EmptyState
-                    title={emptyTitle}
-                    description={emptyDescription}
-                    className="rounded-none border-0 py-14"
-                  />
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="hover:bg-muted/30 transition-colors">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="whitespace-nowrap px-4 py-3 text-foreground">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
+                    >
+                      <div className="flex items-center gap-1">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <span className="text-muted-foreground/60">
+                            {header.column.getIsSorted() === "asc" ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : header.column.getIsSorted() === "desc" ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </th>
                   ))}
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-border bg-card">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="p-0">
+                    <EmptyState
+                      title={emptyTitle}
+                      description={emptyDescription}
+                      className="rounded-none border-0 py-14"
+                    />
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-accent/[0.03] transition-colors duration-100">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="whitespace-nowrap px-4 py-3.5 text-foreground">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>
           {pageCount > 0
             ? `Page ${pageIndex + 1} of ${pageCount}`
@@ -143,9 +145,9 @@ export function DataTable<TData>({
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
             className={cn(
-              "rounded px-3 py-1.5 border border-border text-foreground",
-              "hover:bg-muted transition-colors",
-              "disabled:opacity-40 disabled:cursor-not-allowed"
+              "rounded-full px-4 py-1.5 border border-border text-foreground text-xs font-medium",
+              "hover:bg-accent hover:text-white hover:border-accent transition-all duration-150",
+              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-foreground disabled:hover:border-border"
             )}
           >
             Previous
@@ -155,9 +157,9 @@ export function DataTable<TData>({
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
             className={cn(
-              "rounded px-3 py-1.5 border border-border text-foreground",
-              "hover:bg-muted transition-colors",
-              "disabled:opacity-40 disabled:cursor-not-allowed"
+              "rounded-full px-4 py-1.5 border border-border text-foreground text-xs font-medium",
+              "hover:bg-accent hover:text-white hover:border-accent transition-all duration-150",
+              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-foreground disabled:hover:border-border"
             )}
           >
             Next

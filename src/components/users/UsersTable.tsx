@@ -24,12 +24,14 @@ function ActionMenu({
   onRoleChange,
   onDelete,
   canManage,
+  canChangeStatus,
 }: {
   user: User;
   onStatusChange: (id: string, status: UserStatus) => void;
   onRoleChange: (id: string, role: UserRole) => void;
   onDelete: (id: string) => void;
   canManage: boolean;
+  canChangeStatus: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
@@ -46,11 +48,15 @@ function ActionMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  if (!canManage) {
+  // No permissions at all → render nothing
+  if (!canManage && !canChangeStatus) return null;
+
+  // Limited: can change status but not full management → show a simple toggle button
+  if (!canManage && canChangeStatus) {
     if (user.status === "active") {
       return (
         <button type="button" onClick={() => onStatusChange(user.id, "suspended")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-danger/40 bg-danger/10 px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/20">
+          className="inline-flex items-center gap-1.5 rounded-lg border border-danger/40 bg-danger/10 px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/20">
           <Ban className="h-3.5 w-3.5" /> Suspend
         </button>
       );
@@ -58,7 +64,7 @@ function ActionMenu({
     if (user.status === "suspended") {
       return (
         <button type="button" onClick={() => onStatusChange(user.id, "active")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/20">
+          className="inline-flex items-center gap-1.5 rounded-lg border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/20">
           <RefreshCw className="h-3.5 w-3.5" /> Reactivate
         </button>
       );
@@ -66,36 +72,48 @@ function ActionMenu({
     return null;
   }
 
+  // Full management: Actions dropdown
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => { setOpen((o) => !o); setShowRoles(false); }}
-        className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted">
         Actions <ChevronDown className="h-3 w-3" />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
-          {/* Status actions */}
-          {user.status === "active" && (
-            <button type="button"
-              onClick={() => { onStatusChange(user.id, "suspended"); setOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-danger hover:bg-danger/10 transition-colors">
-              <Ban className="h-3.5 w-3.5" /> Suspend User
-            </button>
-          )}
-          {user.status === "suspended" && (
-            <button type="button"
-              onClick={() => { onStatusChange(user.id, "active"); setOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-success hover:bg-success/10 transition-colors">
-              <RefreshCw className="h-3.5 w-3.5" /> Reactivate User
-            </button>
+        <div className="absolute right-0 z-50 mt-1 w-48 rounded-xl border border-border bg-card shadow-xl overflow-hidden">
+          {/* Status actions — only shown when canChangeStatus */}
+          {canChangeStatus && (
+            <>
+              {user.status === "active" && (
+                <button type="button"
+                  onClick={() => { onStatusChange(user.id, "suspended"); setOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-danger hover:bg-danger/10 transition-colors">
+                  <Ban className="h-3.5 w-3.5" /> Suspend User
+                </button>
+              )}
+              {user.status === "suspended" && (
+                <button type="button"
+                  onClick={() => { onStatusChange(user.id, "active"); setOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-success hover:bg-success/10 transition-colors">
+                  <RefreshCw className="h-3.5 w-3.5" /> Reactivate User
+                </button>
+              )}
+              {user.status === "inactive" && (
+                <button type="button"
+                  onClick={() => { onStatusChange(user.id, "active"); setOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-success hover:bg-success/10 transition-colors">
+                  <RefreshCw className="h-3.5 w-3.5" /> Activate User
+                </button>
+              )}
+            </>
           )}
 
           {/* Role submenu */}
-          <div className="border-t border-border">
+          <div className={canChangeStatus ? "border-t border-border" : ""}>
             <button type="button"
               onClick={() => setShowRoles((s) => !s)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-xs text-foreground hover:bg-muted transition-colors">
               <span className="flex items-center gap-2"><UserCog className="h-3.5 w-3.5" /> Change Role</span>
               <ChevronDown className={`h-3 w-3 transition-transform ${showRoles ? "rotate-180" : ""}`} />
             </button>
@@ -104,7 +122,7 @@ function ActionMenu({
                 {ROLES.filter((r) => r !== user.role).map((r) => (
                   <button key={r} type="button"
                     onClick={() => { onRoleChange(user.id, r); setOpen(false); setShowRoles(false); }}
-                    className="flex w-full items-center gap-2 px-5 py-1.5 text-xs text-foreground hover:bg-accent/10 hover:text-accent transition-colors capitalize">
+                    className="flex w-full items-center gap-2 px-5 py-2 text-xs text-foreground hover:bg-accent/10 hover:text-accent transition-colors capitalize">
                     {r}
                   </button>
                 ))}
@@ -116,7 +134,7 @@ function ActionMenu({
           <div className="border-t border-border">
             <button type="button"
               onClick={() => { onDelete(user.id); setOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-danger hover:bg-danger/10 transition-colors">
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-danger hover:bg-danger/10 transition-colors">
               <Trash2 className="h-3.5 w-3.5" /> Delete User
             </button>
           </div>
@@ -131,6 +149,7 @@ function makeColumns(
   onRoleChange: (id: string, role: UserRole) => void,
   onDelete: (id: string) => void,
   canManageUsers: boolean,
+  canChangeStatus: boolean,
 ): ColumnDef<User, unknown>[] {
   return [
     {
@@ -205,6 +224,7 @@ function makeColumns(
           onRoleChange={onRoleChange}
           onDelete={onDelete}
           canManage={canManageUsers}
+          canChangeStatus={canChangeStatus}
         />
       ),
     },
@@ -217,17 +237,19 @@ export function UsersTable({
   onRoleChange,
   onDelete,
   canManageUsers = false,
+  canChangeStatus = false,
 }: {
   users: User[];
   onStatusChange: (id: string, newStatus: UserStatus) => void;
   onRoleChange: (id: string, role: UserRole) => void;
   onDelete: (id: string) => void;
   canManageUsers?: boolean;
+  canChangeStatus?: boolean;
 }) {
   return (
     <DataTable
       data={users}
-      columns={makeColumns(onStatusChange, onRoleChange, onDelete, canManageUsers)}
+      columns={makeColumns(onStatusChange, onRoleChange, onDelete, canManageUsers, canChangeStatus)}
       searchPlaceholder="Search by name, email or department…"
       emptyTitle="No users found"
       emptyDescription="Try adjusting the role or status filters."

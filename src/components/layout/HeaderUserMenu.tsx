@@ -36,7 +36,7 @@ export function HeaderUserMenu() {
         <button
           type="button"
           aria-label="Open user menu"
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted"
+          className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted"
         >
           <Avatar initials={initials} size="sm" />
           <span className="hidden text-sm font-medium text-foreground sm:block">
@@ -111,8 +111,9 @@ function Avatar({ initials, size }: AvatarProps) {
     <span
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-teal font-bold text-navy",
-        size === "sm" ? "h-7 w-7 text-[11px]" : "h-10 w-10 text-sm"
+        "flex shrink-0 items-center justify-center rounded-full font-bold text-white",
+        "bg-accent shadow-sm",
+        size === "sm" ? "h-8 w-8 text-[11px]" : "h-10 w-10 text-sm"
       )}
     >
       {initials}

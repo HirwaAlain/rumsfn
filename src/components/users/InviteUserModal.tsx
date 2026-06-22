@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, AlertTriangle } from "lucide-react";
 import { inviteUser } from "@/lib/api/users";
 import { useToast } from "@/components/shared/Toast";
 import type { User, UserRole, UserDepartment } from "@/types";
 
-const INPUT  = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50";
+const INPUT  = "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent disabled:opacity-50 transition-colors";
 const LABEL  = "block text-xs font-medium text-foreground mb-1";
-const SELECT = "w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50";
+const SELECT = "w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent disabled:opacity-50 transition-colors";
 
 const ROLES: UserRole[] = ["admin", "supervisor", "analyst", "auditor", "viewer"];
 const DEPARTMENTS: UserDepartment[] = [
@@ -23,7 +23,7 @@ export function InviteUserModal({ open, onClose, onCreated }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    name: "", email: "", phone: "",
+    name: "", contactEmail: "", phone: "",
     role: "analyst" as UserRole, department: "ICT" as UserDepartment,
   });
 
@@ -35,24 +35,36 @@ export function InviteUserModal({ open, onClose, onCreated }: Props) {
     return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) setForm({ name: "", contactEmail: "", phone: "", role: "analyst", department: "ICT" });
+  }, [open]);
+
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.email) {
+    if (!form.name || !form.contactEmail) {
       toast("Name and email are required.", "error"); return;
     }
     setLoading(true);
     try {
-      const created = await inviteUser({
-        name: form.name, email: form.email, phone: form.phone,
-        role: form.role, department: form.department,
+      const result = await inviteUser({
+        name: form.name,
+        contactEmail: form.contactEmail,
+        phone: form.phone || undefined,
+        role: form.role,
+        department: form.department,
       });
-      onCreated(created);
-      toast(`Invitation sent to ${form.email}.`);
+      onCreated(result.user);
+      if (result.inviteSent) {
+        toast(`User created. Credentials sent to ${form.contactEmail}.`);
+      } else {
+        toast(`User created, but invite email failed. Admin must share credentials manually.`, "error");
+      }
       onClose();
-    } catch {
-      toast("Failed to invite user. Please try again.", "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create user. Please try again.";
+      toast(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -62,7 +74,7 @@ export function InviteUserModal({ open, onClose, onCreated }: Props) {
     <AnimatePresence>
       {open && (
         <>
-          <motion.div className="fixed inset-0 z-40 bg-navy/60 backdrop-blur-sm"
+          <motion.div className="fixed inset-0 z-40 bg-purple-dark/60 backdrop-blur-sm"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -70,21 +82,32 @@ export function InviteUserModal({ open, onClose, onCreated }: Props) {
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 340 }}>
               <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <h2 className="text-base font-semibold text-foreground">Invite User</h2>
+                <h2 className="text-base font-semibold text-foreground">Create New User</h2>
                 <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
+
+              <div className="px-6 pt-4">
+                <div className="rounded-xl bg-accent/8 border border-accent/20 px-4 py-3 flex items-start gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    A system email (<span className="font-medium text-foreground">@rura.rw</span>) will be auto-generated. Login credentials will be sent to the contact email you provide.
+                  </p>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
                   <label className={LABEL}>Full Name <span className="text-danger">*</span></label>
-                  <input className={INPUT} placeholder="e.g. Jean Bosco" value={form.name}
+                  <input className={INPUT} placeholder="e.g. Jean Bosco Nkurunziza" value={form.name}
                     onChange={(e) => set("name", e.target.value)} disabled={loading} />
                 </div>
                 <div>
-                  <label className={LABEL}>Email Address <span className="text-danger">*</span></label>
-                  <input type="email" className={INPUT} placeholder="user@rura.gov.rw" value={form.email}
-                    onChange={(e) => set("email", e.target.value)} disabled={loading} />
+                  <label className={LABEL}>Contact Email <span className="text-danger">*</span></label>
+                  <input type="email" className={INPUT} placeholder="personal or work email for invite" value={form.contactEmail}
+                    onChange={(e) => set("contactEmail", e.target.value)} disabled={loading} />
+                  <p className="mt-1 text-[11px] text-muted-foreground">Credentials will be sent here. Not used as the login email.</p>
                 </div>
                 <div>
                   <label className={LABEL}>Phone</label>
@@ -109,13 +132,13 @@ export function InviteUserModal({ open, onClose, onCreated }: Props) {
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={onClose} disabled={loading}
-                    className="flex-1 rounded-lg border border-border py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50">
+                    className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50">
                     Cancel
                   </button>
                   <button type="submit" disabled={loading}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-accent py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors disabled:opacity-50">
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50 shadow-sm">
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Send Invitation
+                    Create User
                   </button>
                 </div>
               </form>

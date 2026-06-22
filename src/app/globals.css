@@ -2,50 +2,54 @@
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Dark-mode variant
-   next-themes sets class="dark" on <html>; tell Tailwind to use that instead
-   of the media query so dark: utilities respond to the class toggle.
+   next-themes sets class="dark" on <html>
 ───────────────────────────────────────────────────────────────────────────── */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Semantic design tokens
-   Light-mode values live on :root; dark overrides live on .dark.
-   Components reference these variables — never hard-coded hex values.
+   Semantic design tokens — Purple governance palette
+   RURA / Rwanda Utilities Regulatory Authority
+   Primary: violet-purple authority  |  Secondary: Rwanda amber
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
   /* ── App shell ── */
-  --background:            #F8FAFC;
-  --foreground:            #1E293B;
+  --background:            #F0EAFF;
+  --foreground:            #1C1040;
 
   /* ── Cards / surfaces ── */
   --card:                  #ffffff;
-  --card-foreground:       #1E293B;
+  --card-foreground:       #1C1040;
 
   /* ── Borders & inputs ── */
-  --border:                #E2E8F0;
-  --input-bg:              #ffffff;
-  --ring:                  #00C2CB;
+  --border:                #E4DBFA;
+  --input-bg:              #F8F5FF;
+  --ring:                  #7B3FE4;
 
   /* ── Muted / subtle ── */
-  --muted:                 #F1F5F9;
-  --muted-foreground:      #64748B;
+  --muted:                 #F5F0FF;
+  --muted-foreground:      #7C6FA8;
 
-  /* ── Brand accent (electric teal) ── */
-  --accent:                #00C2CB;
-  --accent-hover:          #00A8B0;
+  /* ── Brand accent (vivid blue-purple) ── */
+  --accent:                #7B3FE4;
+  --accent-hover:          #6930D0;
   --accent-foreground:     #ffffff;
 
-  /* ── Sidebar (intentionally stays dark in both modes) ── */
-  --sidebar-bg:            #0D1B2A;
-  --sidebar-border:        rgba(255, 255, 255, 0.06);
-  --sidebar-fg:            #94A3B8;
-  --sidebar-fg-active:     #00C2CB;
-  --sidebar-item-active:   rgba(0, 194, 203, 0.12);
-  --sidebar-item-hover:    rgba(255, 255, 255, 0.06);
+  /* ── Secondary accent (Rwanda amber) ── */
+  --amber:                 #E8A000;
+  --amber-bg:              #FFF7E0;
+  --amber-fg:              #92600A;
+
+  /* ── Sidebar — always white ── */
+  --sidebar-bg:            #ffffff;
+  --sidebar-border:        #EDE6FA;
+  --sidebar-fg:            #A89CC8;
+  --sidebar-fg-active:     #ffffff;
+  --sidebar-item-active:   #7B3FE4;
+  --sidebar-item-hover:    #F5F0FF;
 
   /* ── Header ── */
   --header-bg:             #ffffff;
-  --header-border:         #E2E8F0;
+  --header-border:         transparent;
 
   /* ── Status colours ── */
   --success:               #10B981;
@@ -67,26 +71,35 @@
 
 /* ─── Dark-mode overrides ─────────────────────────────────────────────────── */
 .dark {
-  --background:            #0D1B2A;
-  --foreground:            #E2E8F0;
+  --background:            #160D30;
+  --foreground:            #EDE9FE;
 
-  --card:                  #112240;
-  --card-foreground:       #E2E8F0;
+  --card:                  #231A46;
+  --card-foreground:       #EDE9FE;
 
-  --border:                #1E3A5F;
-  --input-bg:              #112240;
+  --border:                #312A5A;
+  --input-bg:              #2D2255;
 
-  --muted:                 #1A2F4A;
-  --muted-foreground:      #94A3B8;
+  --muted:                 #2D2255;
+  --muted-foreground:      #A78BFA;
 
-  --accent:                #00C2CB;
-  --accent-hover:          #00D8E2;
-  --accent-foreground:     #0D1B2A;
+  --accent:                #9B6FF5;
+  --accent-hover:          #8B5CF6;
+  --accent-foreground:     #ffffff;
 
-  /* Sidebar unchanged — always deep navy */
+  --amber:                 #F0A500;
+  --amber-bg:              rgba(240, 165, 0, 0.15);
+  --amber-fg:              #FCD34D;
 
-  --header-bg:             #0D1B2A;
-  --header-border:         #1E3A5F;
+  --sidebar-bg:            #1E1545;
+  --sidebar-border:        rgba(155, 111, 245, 0.12);
+  --sidebar-fg:            #7C6FA8;
+  --sidebar-fg-active:     #ffffff;
+  --sidebar-item-active:   rgba(155, 111, 245, 0.35);
+  --sidebar-item-hover:    rgba(155, 111, 245, 0.1);
+
+  --header-bg:             #1E1545;
+  --header-border:         #312A5A;
 
   --success-bg:            rgba(16,  185, 129, 0.15);
   --success-fg:            #6EE7B7;
@@ -100,15 +113,12 @@
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Tailwind v4 theme registration
-   @theme inline → values are inlined rather than emitted as extra CSS vars,
-   which is what we want because each token already resolves to a var().
-   All --color-* entries become bg-*, text-*, border-* utilities automatically.
 ───────────────────────────────────────────────────────────────────────────── */
 @theme inline {
   /* ── Typography ── */
   --font-sans: var(--font-inter);
 
-  /* ── Semantic colours (reference the CSS vars above) ── */
+  /* ── Semantic colours ── */
   --color-background:           var(--background);
   --color-foreground:           var(--foreground);
 
@@ -125,6 +135,10 @@
   --color-accent:               var(--accent);
   --color-accent-hover:         var(--accent-hover);
   --color-accent-foreground:    var(--accent-foreground);
+
+  --color-amber:                var(--amber);
+  --color-amber-bg:             var(--amber-bg);
+  --color-amber-fg:             var(--amber-fg);
 
   /* Sidebar */
   --color-sidebar:              var(--sidebar-bg);
@@ -155,13 +169,26 @@
   --color-info-bg:              var(--info-bg);
   --color-info-fg:              var(--info-fg);
 
-  /* ── Brand primitives (fixed — never change between modes) ── */
+  /* ── Brand primitives (fixed) ── */
   --color-navy:                 #0D1B2A;
   --color-navy-light:           #112240;
   --color-navy-hover:           #1A2F4A;
   --color-teal:                 #00C2CB;
   --color-teal-dark:            #00A8B0;
   --color-teal-light:           #CCFBFE;
+
+  /* ── Purple primitives ── */
+  --color-purple:               #7B3FE4;
+  --color-purple-light:         #F5F0FF;
+  --color-purple-dark:          #5B1EBF;
+
+  /* ── Shadows — purple-tinted elevation ── */
+  --shadow-sm:  0 1px 3px rgba(123, 63, 228, 0.06), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow:     0 2px 8px rgba(123, 63, 228, 0.09), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md:  0 4px 16px rgba(123, 63, 228, 0.11), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-lg:  0 8px 24px rgba(123, 63, 228, 0.13), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-xl:  0 12px 40px rgba(123, 63, 228, 0.16), 0 6px 16px rgba(0, 0, 0, 0.07);
+  --shadow-2xl: 0 20px 60px rgba(123, 63, 228, 0.19), 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -173,9 +200,23 @@
   background-position: center;
 }
 
+/* Card elevation — shadow instead of border */
+@utility card-shadow {
+  box-shadow:
+    0 1px 3px rgba(123, 63, 228, 0.04),
+    0 4px 12px rgba(123, 63, 228, 0.08),
+    0 0 0 1px rgba(123, 63, 228, 0.05);
+}
+
+@utility card-shadow-hover {
+  box-shadow:
+    0 4px 8px rgba(123, 63, 228, 0.06),
+    0 12px 28px rgba(123, 63, 228, 0.12),
+    0 0 0 1px rgba(123, 63, 228, 0.06);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Base layer
-   Global resets and element defaults that apply before all other styles.
 ───────────────────────────────────────────────────────────────────────────── */
 @layer base {
   *,
@@ -199,16 +240,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Focus ring — teal, not the default blue */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
-  /* Thin, themed scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -221,8 +260,7 @@
     background-color: var(--muted-foreground);
   }
 
-  /* Sidebar scrollbar is even thinner */
   .sidebar-scroll::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
   }
 }

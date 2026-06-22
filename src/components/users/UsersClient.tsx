@@ -191,6 +191,7 @@ export function UsersClient({ users: initial }: { users: User[] }) {
             onRoleChange={handleRoleChange}
             onDelete={handleDeleteRequest}
             canManageUsers={permissions.users.delete || permissions.users.changeRole}
+            canChangeStatus={permissions.users.changeStatus}
           />
         </section>
       </div>

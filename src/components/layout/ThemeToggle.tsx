@@ -11,7 +11,7 @@ export function ThemeToggle() {
   // Avoid hydration mismatch — next-themes sets the class after mount.
   // Render a same-size placeholder until the client knows the real theme.
   useEffect(() => setMounted(true), []);
-  if (!mounted) return <div className="h-8 w-8 rounded-lg" aria-hidden="true" />;
+  if (!mounted) return <div className="h-9 w-9 rounded-xl" aria-hidden="true" />;
 
   const isDark = theme === "dark";
 
@@ -20,7 +20,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-accent"
     >
       {isDark
         ? <Sun  className="h-4 w-4" aria-hidden="true" />

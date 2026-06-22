@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, FileText, Globe, Archive, Loader2 } from "lucide-react";
+import { Download, FileText, Globe, Archive, Loader2, Printer } from "lucide-react";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn, formatDate } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { printReport } from "@/components/reports/ReportPrint";
 import type { Report, ReportType, ReportFormat } from "@/types";
 
 const TYPE_CHIP: Record<ReportType, string> = {
@@ -36,12 +38,16 @@ function ActionsCell({
   canArchive,
   canDownload,
   onUpdate,
+  generatedBy,
+  generatedByRole,
 }: {
   report: Report;
   canPublish: boolean;
   canArchive: boolean;
   canDownload: boolean;
   onUpdate?: (r: Report) => void;
+  generatedBy: string;
+  generatedByRole: string;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
@@ -72,37 +78,52 @@ function ActionsCell({
     }
   }
 
+  function handlePrint() {
+    printReport(report, generatedBy, generatedByRole);
+  }
+
   return (
     <div className="flex items-center gap-1">
       {canPublish && report.status === "draft" && (
         <button type="button" disabled={!!busy} onClick={handlePublish}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-success hover:bg-success-bg transition-colors disabled:opacity-50">
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-success hover:bg-success-bg transition-colors disabled:opacity-50">
           {busy === "publish" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
           Publish
         </button>
       )}
       {canArchive && report.status === "published" && (
         <button type="button" disabled={!!busy} onClick={handleArchive}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
           {busy === "archive" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
           Archive
         </button>
       )}
-      {canDownload && report.downloadUrl ? (
+
+      {/* Print button — always available */}
+      <button type="button" onClick={handlePrint}
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10 transition-colors">
+        <Printer className="h-3 w-3" />
+        Print
+      </button>
+
+      {/* Download link — only when a stored file exists */}
+      {canDownload && report.downloadUrl && (
         <a href={report.downloadUrl}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-accent hover:bg-accent/10 transition-colors">
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
           <Download className="h-3.5 w-3.5" />
-          Download
+          File
         </a>
-      ) : (!canPublish && !canArchive) ? (
-        <span className="text-xs text-muted-foreground/40 italic">No actions</span>
-      ) : null}
+      )}
     </div>
   );
 }
 
 export function ReportsTable({ reports, canPublish = true, canArchive = true, canDownload = true, onUpdate }: ReportsTableProps) {
+  const { user } = useAuth();
   const [localReports, setLocalReports] = useState(reports);
+
+  const generatedBy   = user?.name ?? "RURA Staff";
+  const generatedByRole = user?.role?.toUpperCase() ?? "STAFF";
 
   function handleUpdate(updated: Report) {
     setLocalReports((prev) => prev.map((r) => r.id === updated.id ? updated : r));
@@ -174,6 +195,8 @@ export function ReportsTable({ reports, canPublish = true, canArchive = true, ca
           canArchive={canArchive}
           canDownload={canDownload}
           onUpdate={handleUpdate}
+          generatedBy={generatedBy}
+          generatedByRole={generatedByRole}
         />
       ),
     },
